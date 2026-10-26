@@ -22,6 +22,8 @@ if [ ! -x "$dir/gitleaks" ]; then
     tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
 fi
 "$dir/gitleaks" git --config .gitleaks.toml --redact --no-banner .
+# The lockfiles are -diff in .gitattributes, so the git scan does not read them.
+"$dir/gitleaks" dir --config .gitleaks.toml --redact --no-banner package-lock.json example/package-lock.json
 
 # Each commit message and each patch, also of merges. Without the colons, a fingerprint matches in both of its forms
 # (AB:CD:... and abcd...). The message names the secret and never shows its value.
@@ -29,7 +31,7 @@ found=0
 for name in SCAN_TEAM_ID SCAN_BUNDLE_ID SCAN_APPLICATION_ID SCAN_LINK_DOMAIN SCAN_STAGING_HOST SCAN_CERT_SHA256; do
     value=$(printenv "$name" | tr -d : || true)
     [ -n "$value" ] || continue
-    if git log --all -p -m --format=%B | tr -d : | grep -i -F -q -e "$value"; then
+    if git log --all -p -m --text --format=%B | tr -d : | grep -i -F -q -e "$value"; then
         echo "The git history contains the value of $name." >&2
         found=1
     fi
