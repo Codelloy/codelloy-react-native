@@ -26,6 +26,8 @@ export interface Spec extends TurboModule {
   match(): Promise<NativeLink | null>;
   getPendingLink(): NativeLink | null;
   handleLink(url: string): boolean;
+  // The initial URL of React Native Linking. Android gives the intent of the activity to the core instead.
+  handleInitialLink(url: string): boolean;
   installId(): string | null;
   resetForTesting(): boolean;
   addListener(eventName: string): void;

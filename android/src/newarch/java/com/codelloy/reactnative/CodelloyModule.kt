@@ -30,6 +30,8 @@ class CodelloyModule(
 
     override fun handleLink(url: String): Boolean = impl.handleLink(url)
 
+    override fun handleInitialLink(url: String): Boolean = impl.handleInitialLink(url)
+
     override fun installId(): String? = impl.installId()
 
     override fun resetForTesting(): Boolean = impl.resetForTesting()

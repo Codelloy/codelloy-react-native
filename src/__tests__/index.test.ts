@@ -11,7 +11,7 @@ const link: NativeLink = {
 };
 
 // Each test loads a fresh copy of the module, because the module keeps its listeners and delivered ids.
-async function load() {
+async function load(os: 'ios' | 'android' = 'ios') {
   jest.resetModules();
   const native = {
     configure: jest.fn<boolean, Parameters<Spec['configure']>>(() => true),
@@ -19,6 +19,7 @@ async function load() {
     match: jest.fn<Promise<NativeLink | null | undefined>, []>(),
     getPendingLink: jest.fn<NativeLink | null, []>(() => null),
     handleLink: jest.fn<boolean, [string]>(() => true),
+    handleInitialLink: jest.fn<boolean, [string]>(() => true),
     installId: jest.fn<string | null, []>(() => 'install-1'),
     resetForTesting: jest.fn<boolean, []>(() => true),
     addListener: jest.fn<undefined, [string]>(),
@@ -28,8 +29,9 @@ async function load() {
     __esModule: true,
     default: native,
   }));
-  const { AppState, DeviceEventEmitter, Linking } =
+  const { AppState, DeviceEventEmitter, Linking, Platform } =
     await import('react-native');
+  jest.replaceProperty(Platform, 'OS', os);
   const api = await import('../index');
   const emit = (value: NativeLink) => {
     DeviceEventEmitter.emit('CodelloyLink', value);
@@ -242,6 +244,54 @@ describe('Linking', () => {
     await flush();
 
     expect(native.handleLink).toHaveBeenCalledTimes(1);
+  });
+
+  // The core refuses each link until the first match. A link that the user opened before consent must not be lost.
+  it('gives a url event before the first match with autoMatch false to handleLink after match', async () => {
+    const { api, native, urlListener } = await load();
+    native.match.mockResolvedValue(null);
+
+    api.init({ key: 'pk_test_x', autoMatch: false });
+    urlListener()({ url: 'https://links.example.com/def' });
+    expect(native.handleLink).not.toHaveBeenCalled();
+
+    await api.match();
+    expect(native.handleLink).toHaveBeenCalledWith(
+      'https://links.example.com/def'
+    );
+  });
+
+  // Android: after a process death, Recents starts the activity again with the old intent. The core checks the
+  // intent, not the URL, so it does not resolve that link or a handled intent again.
+  it('gives the initial URL on Android to the core with the intent of the activity', async () => {
+    const { api, native, Linking, becomeActive } = await load('android');
+    jest
+      .mocked(Linking.getInitialURL)
+      .mockResolvedValue('https://links.example.com/abc');
+
+    api.init({ key: 'pk_test_x' });
+    await flush();
+    becomeActive();
+    await flush();
+
+    expect(native.handleInitialLink.mock.calls).toEqual([
+      ['https://links.example.com/abc'],
+      ['https://links.example.com/abc'],
+    ]);
+    expect(native.handleLink).not.toHaveBeenCalled();
+  });
+
+  // Jest fails a test that leaves a rejection unhandled.
+  it('leaves no rejection unhandled when the initial URL cannot be read', async () => {
+    const { api, Linking } = await load();
+    jest
+      .mocked(Linking.getInitialURL)
+      .mockRejectedValue(new Error('Could not get the initial URL'));
+
+    api.init({ key: 'pk_test_x' });
+    await flush();
+
+    expect(Linking.getInitialURL).toHaveBeenCalled();
   });
 
   it('does not read the initial URL when the app becomes active before the first match with autoMatch false', async () => {

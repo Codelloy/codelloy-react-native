@@ -40,6 +40,9 @@ class CodelloyModule(
     fun handleLink(url: String): Boolean = impl.handleLink(url)
 
     @ReactMethod(isBlockingSynchronousMethod = true)
+    fun handleInitialLink(url: String): Boolean = impl.handleInitialLink(url)
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
     fun installId(): String? = impl.installId()
 
     @ReactMethod(isBlockingSynchronousMethod = true)

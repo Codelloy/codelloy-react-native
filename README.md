@@ -31,7 +31,7 @@ const remove = Codelloy.onLink((link) => {
 
 `onLink` gets the deferred link of the first launch after the install, and each link that opens the app. A link that arrives before the first listener goes to that listener, also before `onLink` returns. Each link goes to the listeners one time. The function that `onLink` returns removes the listener. Keep one listener for the life of the app: a link that arrives while the last listener is being removed can be lost.
 
-The SDK reads each URL of React Native `Linking` by itself. `handleLink(url)` returns `true` for a URL on a link domain of your organisation. For each other URL it returns `false`, and the app handles the URL itself.
+The SDK reads each URL of React Native `Linking` by itself. `handleLink(url)` returns `true` for a URL on a link domain of your organisation. For each other URL it returns `false`, and the app handles the URL itself. Do not give `handleLink` a URL of React Native `Linking`: the SDK already has it, and each call resolves the link again.
 
 | `init` option    | Default         | Effect                                                                                                  |
 | ---------------- | --------------- | ------------------------------------------------------------------------------------------------------- |

@@ -1,4 +1,4 @@
-import { AppState, Linking, NativeEventEmitter } from 'react-native';
+import { AppState, Linking, NativeEventEmitter, Platform } from 'react-native';
 import Native, { type NativeLink } from './NativeCodelloy';
 import { version } from './version';
 
@@ -47,6 +47,8 @@ let subscription: { remove(): void } | undefined;
 let initialized = false;
 // True when the core takes links: from init with autoMatch, else from the first match.
 let readsInitialUrl = false;
+// The URLs of url events before that. The core refuses each link until then.
+const waitingUrls: string[] = [];
 // The URLs that went to handleLink. getInitialURL gives the same URL again while the JavaScript runtime lives.
 const handledUrls = new Set<string>();
 
@@ -63,10 +65,17 @@ function handleUrl(url: string) {
 
 function readInitialUrl() {
   readsInitialUrl = true;
-  void Linking.getInitialURL().then((url) => {
-    // shortcut: the same link again through a new Android activity is skipped, upgrade with a native intent check.
-    if (url && !handledUrls.has(url)) handleUrl(url);
-  });
+  for (const url of waitingUrls.splice(0)) handleUrl(url);
+  Linking.getInitialURL()
+    .then((url) => {
+      if (!url) return;
+      // Android: the core checks the intent of the activity, so it does not resolve a handled intent or an intent
+      // from Recents again.
+      if (Platform.OS === 'android') Native.handleInitialLink(url);
+      else if (!handledUrls.has(url)) handleUrl(url);
+    })
+    // The app did not ask for this read, so a failed read is not its error.
+    .catch(() => undefined);
 }
 
 /**
@@ -87,7 +96,8 @@ export function init(options: CodelloyOptions): void {
   if (initialized) return;
   initialized = true;
   Linking.addEventListener('url', ({ url }) => {
-    handleUrl(url);
+    if (readsInitialUrl) handleUrl(url);
+    else waitingUrls.push(url);
   });
   // Android 11 and lower: Back ends the activity but not the runtime. A link then starts a new activity, and React
   // Native sends no url event for it. Only getInitialURL gives that link.
@@ -134,8 +144,9 @@ export function onLink(listener: (link: CodelloyLink) => void): () => void {
 }
 
 /**
- * Gives a URL to the SDK. The SDK already gets each URL of React Native `Linking`. Returns `true` when the URL is on
- * a link domain of the organisation, and the link then goes to `onLink`.
+ * Gives a URL to the SDK. The SDK already gets each URL of React Native `Linking`, so do not give it such a URL: each
+ * call resolves the link again. Returns `true` when the URL is on a link domain of the organisation, and the link then
+ * goes to `onLink`.
  */
 export function handleLink(url: string): boolean {
   return Native.handleLink(url);

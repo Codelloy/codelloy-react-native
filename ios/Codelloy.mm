@@ -96,6 +96,12 @@ RCT_EXPORT_SYNCHRONOUS_TYPED_METHOD(NSNumber *, handleLink:(NSString *)url)
   return @([_impl handleLink:url]);
 }
 
+// Android gives the intent of the activity. iOS has no intent, so it gives the URL.
+RCT_EXPORT_SYNCHRONOUS_TYPED_METHOD(NSNumber *, handleInitialLink:(NSString *)url)
+{
+  return @([_impl handleLink:url]);
+}
+
 RCT_EXPORT_SYNCHRONOUS_TYPED_METHOD(NSString *, installId)
 {
   return _impl.installId;

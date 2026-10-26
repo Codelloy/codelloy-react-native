@@ -1,5 +1,6 @@
 package com.codelloy.reactnative
 
+import android.content.Intent
 import android.net.Uri
 import com.codelloy.Codelloy
 import com.codelloy.CodelloyConfidence
@@ -53,6 +54,19 @@ internal class CodelloyImpl(
     fun getPendingLink(): WritableMap? = Codelloy.pendingLink?.let(::toMap)
 
     fun handleLink(url: String): Boolean = Codelloy.handleLink(Uri.parse(url))
+
+    /**
+     * The initial URL of React Native `Linking`. The SDK gets the intent of the activity, so it does not resolve a
+     * handled intent or an intent from Recents again.
+     */
+    fun handleInitialLink(url: String): Boolean {
+        val intent = context.currentActivity?.intent
+        return if (intent?.action == Intent.ACTION_VIEW && intent.data?.toString() == url) {
+            Codelloy.handleLink(intent)
+        } else {
+            handleLink(url)
+        }
+    }
 
     fun installId(): String? = Codelloy.installId
 
