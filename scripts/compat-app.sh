@@ -26,8 +26,8 @@ case $version in
 esac
 
 mkdir -p "$dir"
-# The files that npm publishes. Without scripts, prepack does not replace ios/Frameworks with the release, and lib/ is
-# the build of npm install.
+# The files that npm publishes. --ignore-scripts skips prepack, so ios/Frameworks keeps its XCFramework. npm still runs
+# prepare (the bob build of lib/) when it packs a folder.
 npm pack --ignore-scripts --pack-destination "$dir" >/dev/null
 tarball=$(ls "$dir"/codelloy-react-native-*.tgz)
 cd "$dir"
