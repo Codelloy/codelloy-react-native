@@ -34,6 +34,7 @@
     "typecheck": "tsc",
     "test": "jest",
     "prepare": "bob build",
+    "prepack": "scripts/fetch-native.sh",
     "lint:native": "scripts/lint-native.sh"
   },
   "keywords": [
@@ -52,6 +53,10 @@
   "homepage": "https://codelloy.com/docs/sdks",
   "bugs": {
     "url": "https://github.com/Codelloy/codelloy-react-native/issues"
+  },
+  "codelloyNative": {
+    "version": "0.1.0",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
