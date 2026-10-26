@@ -1,15 +1,20 @@
 #!/bin/sh
 # Puts the XCFramework of the native SDK release that package.json pins (codelloyNative) into ios/Frameworks/.
 # npm runs it before each pack and publish (prepack). It stops on each error, so npm never packs a wrong binary.
-# CODELLOY_NATIVE_URL replaces the release download URL before the version, for a test. The SHA-256 check stays.
+# CODELLOY_NATIVE_URL replaces the release download URL before the version, for a test. The SHA-256 check stays. npm
+# pack and npm publish refuse it.
 set -eu
 cd "$(dirname "$0")/.."
 
 version=$(node -p "require('./package.json').codelloyNative.version")
 sha256=$(node -p "require('./package.json').codelloyNative.sha256")
-# The version goes into the URL and the file name.
+# The version goes into the URL and the file name. curl resolves .. in a URL.
 case $version in
-    '' | *[!0-9.]*)
+    *[!0-9.]* | .* | *. | *..* | *.*.*.*) version= ;;
+esac
+case $version in
+    *.*.*) ;;
+    *)
         echo "codelloyNative.version in package.json must be major.minor.patch." >&2
         exit 1
         ;;
@@ -29,6 +34,11 @@ case $sha256 in
         exit 1
         ;;
 esac
+
+if [ "${npm_lifecycle_event:-}" = prepack ] && [ -n "${CODELLOY_NATIVE_URL:-}" ]; then
+    echo "CODELLOY_NATIVE_URL is only for a test. npm pack and npm publish download the release." >&2
+    exit 1
+fi
 
 name=CodelloySDK-$version.xcframework.zip
 url=${CODELLOY_NATIVE_URL:-https://github.com/Codelloy/codelloy-ios/releases/download}/$version/$name

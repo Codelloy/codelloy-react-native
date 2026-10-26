@@ -1,6 +1,7 @@
 #!/bin/sh
 # Tests scripts/fetch-native.sh in a temporary package against fixture zips: a good release, a wrong SHA-256, a missing
-# release, a network error, a zip with a wrong layout and the placeholder pin.
+# release, a network error, a zip with a wrong layout, the placeholder pin, a bad version and CODELLOY_NATIVE_URL in
+# prepack.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -51,5 +52,13 @@ refused 'Could not download' 9.8.7 "$(sha 9.8.7)" http://127.0.0.1:9
 refused 'has no CodelloySDK.xcframework' 9.8.8 "$(sha 9.8.8)" "$releases"
 refused 'placeholder' 9.8.7 "$(printf '%064d' 0)" "$releases"
 refused 'major.minor.patch' 9.8.7/.. "$(sha 9.8.7)" "$releases"
+# curl resolves .. in the URL, so the download would leave the release.
+refused 'major.minor.patch' .. "$(sha 9.8.7)" "$releases"
+refused 'major.minor.patch' 9.8 "$(sha 9.8.7)" "$releases"
+# npm pack and npm publish (prepack) download only from the release.
+(
+    export npm_lifecycle_event=prepack
+    refused 'CODELLOY_NATIVE_URL' 9.8.7 "$(sha 9.8.7)" "$releases"
+)
 echo "fetch-native.sh stops for a wrong SHA-256, a missing release, a network error, a wrong layout, the placeholder" \
-    "pin and a bad version."
+    "pin, a bad version and CODELLOY_NATIVE_URL in prepack."
