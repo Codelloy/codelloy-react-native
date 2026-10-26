@@ -22,12 +22,15 @@ if [ ! -x "$dir/gitleaks" ]; then
     tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
 fi
 "$dir/gitleaks" git --config .gitleaks.toml --redact --no-banner .
-# The lockfiles are -diff in .gitattributes, so the git scan does not read them.
-"$dir/gitleaks" dir --config .gitleaks.toml --redact --no-banner package-lock.json example/package-lock.json
 
-# Each commit message and each patch, also of merges. Without the colons, a fingerprint matches in both of its forms
+# Each commit message and each patch, also of merges. gitleaks skips the lockfiles (its default allowlist), so the
+# key form of .gitleaks.toml is searched here too. Without the colons, a fingerprint matches in both of its forms
 # (AB:CD:... and abcd...). The message names the secret and never shows its value.
 found=0
+if git log --all -p -m --text --format=%B | grep -E -q 'pk_(live|test)_[0-9a-f]{32}'; then
+    echo "The git history contains a Codelloy SDK key." >&2
+    found=1
+fi
 for name in SCAN_TEAM_ID SCAN_BUNDLE_ID SCAN_APPLICATION_ID SCAN_LINK_DOMAIN SCAN_STAGING_HOST SCAN_CERT_SHA256; do
     value=$(printenv "$name" | tr -d : || true)
     [ -n "$value" ] || continue
