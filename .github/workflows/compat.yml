@@ -15,7 +15,25 @@ permissions:
   contents: read
 
 jobs:
+  # The native jobs use only released native SDK artifacts, at the version that package.json pins.
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.pin.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: pin
+        run: |
+          version=$(jq -r '.codelloyNative.version // empty' package.json)
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          if [ -z "$version" ]; then
+            echo "No native SDK release is pinned in package.json (codelloyNative) yet. The compat jobs are skipped. They start after the first release." >>"$GITHUB_STEP_SUMMARY"
+          fi
+
   app:
+    needs: release
+    if: needs.release.outputs.version != ''
     name: ${{ matrix.react-native }} ${{ matrix.arch }} ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -50,11 +68,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: ./.github/actions/native
-        with:
-          platform: ${{ matrix.platform }}
-          repository: ${{ vars.CODELLOY_NATIVE_REPOSITORY }}
-          ref: ${{ vars.CODELLOY_NATIVE_REF || 'feature/deferred-deep-linking' }}
-          token: ${{ secrets.CODELLOY_NATIVE_TOKEN }}
+      - if: matrix.platform == 'ios'
+        uses: ./.github/actions/native
       - run: npm ci
       - run: scripts/compat-app.sh "${{ matrix.react-native }}" "${{ matrix.arch }}" "${{ matrix.platform }}" "$RUNNER_TEMP/compat"

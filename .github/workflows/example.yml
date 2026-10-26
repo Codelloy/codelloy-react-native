@@ -14,7 +14,25 @@ permissions:
   contents: read
 
 jobs:
+  # The native jobs use only released native SDK artifacts, at the version that package.json pins.
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.pin.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: pin
+        run: |
+          version=$(jq -r '.codelloyNative.version // empty' package.json)
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          if [ -z "$version" ]; then
+            echo "No native SDK release is pinned in package.json (codelloyNative) yet. The native build jobs are skipped. They start after the first release." >>"$GITHUB_STEP_SUMMARY"
+          fi
+
   ios:
+    needs: release
+    if: needs.release.outputs.version != ''
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -27,11 +45,6 @@ jobs:
             package-lock.json
             example/package-lock.json
       - uses: ./.github/actions/native
-        with:
-          platform: ios
-          repository: ${{ vars.CODELLOY_NATIVE_REPOSITORY }}
-          ref: ${{ vars.CODELLOY_NATIVE_REF || 'feature/deferred-deep-linking' }}
-          token: ${{ secrets.CODELLOY_NATIVE_TOKEN }}
       - run: npm ci && npm ci --prefix example
       - working-directory: example
         run: bundle install && cd ios && bundle exec pod install
@@ -41,6 +54,8 @@ jobs:
           -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
   android:
+    needs: release
+    if: needs.release.outputs.version != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -61,12 +76,6 @@ jobs:
           # The default provider is a commercial service. basic uses the GitHub Actions cache.
           cache-provider: basic
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-      - uses: ./.github/actions/native
-        with:
-          platform: android
-          repository: ${{ vars.CODELLOY_NATIVE_REPOSITORY }}
-          ref: ${{ vars.CODELLOY_NATIVE_REF || 'feature/deferred-deep-linking' }}
-          token: ${{ secrets.CODELLOY_NATIVE_TOKEN }}
       - run: npm ci && npm ci --prefix example
       - working-directory: example/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain

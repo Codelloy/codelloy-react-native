@@ -2,7 +2,8 @@
 # Makes a temporary React Native app, installs the packed wrapper, type-checks a file that calls each function and
 # builds the app.
 # Usage: scripts/compat-app.sh <react-native version|latest> <old|new> <ios|android> [folder]
-# Run scripts/native-dev.sh for the platform first. iOS needs Ruby with Bundler. Android needs JDK 17.
+# Run scripts/native-dev.sh for the platform first (CI uses the release). iOS needs Ruby with Bundler. Android needs
+# JDK 17.
 set -eu
 cd "$(dirname "$0")/.."
 
