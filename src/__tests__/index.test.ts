@@ -14,8 +14,9 @@ const link: NativeLink = {
 async function load() {
   jest.resetModules();
   const native = {
-    configure: jest.fn<undefined, Parameters<Spec['configure']>>(),
-    match: jest.fn<Promise<NativeLink | null>, []>(),
+    configure: jest.fn<boolean, Parameters<Spec['configure']>>(() => true),
+    // iOS resolves a nil result as undefined.
+    match: jest.fn<Promise<NativeLink | null | undefined>, []>(),
     getPendingLink: jest.fn<NativeLink | null, []>(() => null),
     handleLink: jest.fn<boolean, [string]>(() => true),
     installId: jest.fn<string | null, []>(() => 'install-1'),
@@ -27,7 +28,8 @@ async function load() {
     __esModule: true,
     default: native,
   }));
-  const { DeviceEventEmitter, Linking } = await import('react-native');
+  const { AppState, DeviceEventEmitter, Linking } =
+    await import('react-native');
   const api = await import('../index');
   const emit = (value: NativeLink) => {
     DeviceEventEmitter.emit('CodelloyLink', value);
@@ -37,7 +39,12 @@ async function load() {
     if (!call) throw new Error('init did not subscribe to Linking');
     return call[1];
   };
-  return { api, native, Linking, emit, urlListener };
+  const becomeActive = () => {
+    const call = jest.mocked(AppState.addEventListener).mock.calls[0];
+    if (!call) throw new Error('init did not subscribe to AppState');
+    call[1]('active');
+  };
+  return { api, native, Linking, emit, urlListener, becomeActive };
 }
 
 const flush = () =>
@@ -163,7 +170,7 @@ describe('Linking', () => {
     expect(native.handleLink).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the initial URL one time', async () => {
+  it('gives the initial URL to handleLink one time', async () => {
     const { api, native, Linking } = await load();
     jest
       .mocked(Linking.getInitialURL)
@@ -174,7 +181,6 @@ describe('Linking', () => {
     await api.match();
     await flush();
 
-    expect(Linking.getInitialURL).toHaveBeenCalledTimes(1);
     expect(native.handleLink).toHaveBeenCalledTimes(1);
   });
 
@@ -186,6 +192,66 @@ describe('Linking', () => {
 
     expect(Linking.addEventListener).toHaveBeenCalledTimes(1);
     expect(native.configure).toHaveBeenCalledTimes(2);
+  });
+
+  // Android 11 and lower: Back ends the activity but not the JavaScript runtime. A new link starts a new activity,
+  // and React Native sends no url event for it.
+  it('gives a new initial URL to handleLink when the app becomes active', async () => {
+    const { api, native, Linking, becomeActive } = await load();
+    jest
+      .mocked(Linking.getInitialURL)
+      .mockResolvedValueOnce('https://links.example.com/abc')
+      .mockResolvedValueOnce('https://links.example.com/def');
+
+    api.init({ key: 'pk_test_x' });
+    await flush();
+    becomeActive();
+    await flush();
+
+    expect(native.handleLink.mock.calls).toEqual([
+      ['https://links.example.com/abc'],
+      ['https://links.example.com/def'],
+    ]);
+  });
+
+  it('does not give the same initial URL again when the app becomes active', async () => {
+    const { api, native, Linking, becomeActive } = await load();
+    jest
+      .mocked(Linking.getInitialURL)
+      .mockResolvedValue('https://links.example.com/abc');
+
+    api.init({ key: 'pk_test_x' });
+    await flush();
+    becomeActive();
+    await flush();
+
+    expect(native.handleLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not give the URL of a url event again as an initial URL', async () => {
+    const { api, native, Linking, urlListener, becomeActive } = await load();
+    jest.mocked(Linking.getInitialURL).mockResolvedValueOnce(null);
+
+    api.init({ key: 'pk_test_x' });
+    await flush();
+    urlListener()({ url: 'https://links.example.com/def' });
+    jest
+      .mocked(Linking.getInitialURL)
+      .mockResolvedValueOnce('https://links.example.com/def');
+    becomeActive();
+    await flush();
+
+    expect(native.handleLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read the initial URL when the app becomes active before the first match with autoMatch false', async () => {
+    const { api, Linking, becomeActive } = await load();
+
+    api.init({ key: 'pk_test_x', autoMatch: false });
+    becomeActive();
+    await flush();
+
+    expect(Linking.getInitialURL).not.toHaveBeenCalled();
   });
 
   it('does not read the initial URL for a match before init', async () => {
@@ -286,6 +352,13 @@ describe('the other calls', () => {
     native.match.mockResolvedValueOnce(link).mockResolvedValueOnce(null);
 
     await expect(api.match()).resolves.toEqual(link);
+    await expect(api.match()).resolves.toBeNull();
+  });
+
+  it('match gives null when iOS resolves no link as undefined', async () => {
+    const { api, native } = await load();
+    native.match.mockResolvedValue(undefined);
+
     await expect(api.match()).resolves.toBeNull();
   });
 

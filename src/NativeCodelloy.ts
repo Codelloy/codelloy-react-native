@@ -11,7 +11,7 @@ export type NativeLink = {
 };
 
 // Primitive parameters give the same native signatures on both architectures. The name is not init, because an
-// Objective-C method init: is an initializer.
+// Objective-C method init: is an initializer. configure is sync, so the sync calls after init see a started core.
 export interface Spec extends TurboModule {
   configure(
     key: string,
@@ -22,7 +22,7 @@ export interface Spec extends TurboModule {
     debug: boolean,
     baseUrl: string | null,
     wrapper: string
-  ): void;
+  ): boolean;
   match(): Promise<NativeLink | null>;
   getPendingLink(): NativeLink | null;
   handleLink(url: string): boolean;

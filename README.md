@@ -3,7 +3,8 @@
 React Native SDK for Codelloy deep links and deferred deep linking. Documentation: https://codelloy.com/docs/sdks
 
 - React Native 0.74 or later, on the new and the old architecture.
-- iOS 15.0 or later. Android 7.0 (API 24) or later, or the `minSdkVersion` of your app when it is higher.
+- iOS 15.0 or later.
+- Android: the package builds with `minSdkVersion` 24. The SDK sends requests on Android 7.1 (API 25) or later, because older versions do not trust the certificate of the server.
 
 ## Install
 
@@ -28,7 +29,7 @@ const remove = Codelloy.onLink((link) => {
 });
 ```
 
-`onLink` gets the deferred link of the first launch after the install, and each link that opens the app. A link that arrives before the first listener goes to that listener. Each link goes to the listeners one time. The function that `onLink` returns removes the listener.
+`onLink` gets the deferred link of the first launch after the install, and each link that opens the app. A link that arrives before the first listener goes to that listener, also before `onLink` returns. Each link goes to the listeners one time. The function that `onLink` returns removes the listener. Keep one listener for the life of the app: a link that arrives while the last listener is being removed can be lost.
 
 The SDK reads each URL of React Native `Linking` by itself. `handleLink(url)` returns `true` for a URL on a link domain of your organisation. For each other URL it returns `false`, and the app handles the URL itself.
 

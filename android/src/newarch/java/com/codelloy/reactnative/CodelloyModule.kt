@@ -19,7 +19,10 @@ class CodelloyModule(
         debug: Boolean,
         baseUrl: String?,
         wrapper: String,
-    ) = impl.configure(key, clipboard, signalMatching, autoMatch, minConfidence, debug, baseUrl, wrapper)
+    ): Boolean {
+        impl.configure(key, clipboard, signalMatching, autoMatch, minConfidence, debug, baseUrl, wrapper)
+        return true
+    }
 
     override fun match(promise: Promise) = impl.match(promise)
 

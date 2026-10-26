@@ -57,14 +57,15 @@ RCT_EXPORT_MODULE()
 
 // clang-format reads the export macros as C calls and breaks the Objective-C selectors.
 // clang-format off
-RCT_EXPORT_METHOD(configure:(NSString *)key
-                  clipboard:(BOOL)clipboard
-                  signalMatching:(BOOL)signalMatching
-                  autoMatch:(BOOL)autoMatch
-                  minConfidence:(NSString *)minConfidence
-                  debug:(BOOL)debug
-                  baseUrl:(NSString *)baseUrl
-                  wrapper:(NSString *)wrapper)
+// Sync, so a sync call right after init sees the configured SDK.
+RCT_EXPORT_SYNCHRONOUS_TYPED_METHOD(NSNumber *, configure:(NSString *)key
+                                    clipboard:(BOOL)clipboard
+                                    signalMatching:(BOOL)signalMatching
+                                    autoMatch:(BOOL)autoMatch
+                                    minConfidence:(NSString *)minConfidence
+                                    debug:(BOOL)debug
+                                    baseUrl:(NSString *)baseUrl
+                                    wrapper:(NSString *)wrapper)
 {
   [_impl configureWithKey:key
                 clipboard:clipboard
@@ -74,6 +75,7 @@ RCT_EXPORT_METHOD(configure:(NSString *)key
                     debug:debug
                   baseUrl:baseUrl
                   wrapper:wrapper];
+  return @YES;
 }
 
 RCT_EXPORT_METHOD(match:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)

@@ -1,4 +1,4 @@
-import { Linking, NativeEventEmitter } from 'react-native';
+import { AppState, Linking, NativeEventEmitter } from 'react-native';
 import Native, { type NativeLink } from './NativeCodelloy';
 import { version } from './version';
 
@@ -45,7 +45,10 @@ const listeners = new Set<(link: CodelloyLink) => void>();
 const delivered = new Set<string>();
 let subscription: { remove(): void } | undefined;
 let initialized = false;
-let initialUrlRead = false;
+// True when the core takes links: from init with autoMatch, else from the first match.
+let readsInitialUrl = false;
+// The URLs that went to handleLink. getInitialURL gives the same URL again while the JavaScript runtime lives.
+const handledUrls = new Set<string>();
 
 function deliver(link: NativeLink | null) {
   if (!link || delivered.has(link.id)) return;
@@ -53,11 +56,16 @@ function deliver(link: NativeLink | null) {
   for (const listener of listeners) listener(link as CodelloyLink);
 }
 
+function handleUrl(url: string) {
+  handledUrls.add(url);
+  Native.handleLink(url);
+}
+
 function readInitialUrl() {
-  if (initialUrlRead) return;
-  initialUrlRead = true;
+  readsInitialUrl = true;
   void Linking.getInitialURL().then((url) => {
-    if (url) Native.handleLink(url);
+    // shortcut: the same link again through a new Android activity is skipped, upgrade with a native intent check.
+    if (url && !handledUrls.has(url)) handleUrl(url);
   });
 }
 
@@ -78,7 +86,14 @@ export function init(options: CodelloyOptions): void {
   );
   if (initialized) return;
   initialized = true;
-  Linking.addEventListener('url', ({ url }) => Native.handleLink(url));
+  Linking.addEventListener('url', ({ url }) => {
+    handleUrl(url);
+  });
+  // Android 11 and lower: Back ends the activity but not the runtime. A link then starts a new activity, and React
+  // Native sends no url event for it. Only getInitialURL gives that link.
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active' && readsInitialUrl) readInitialUrl();
+  });
   // With autoMatch false, the core refuses each link until match.
   if (autoMatch) readInitialUrl();
 }
@@ -89,7 +104,8 @@ export function init(options: CodelloyOptions): void {
  */
 export async function match(): Promise<CodelloyLink | null> {
   try {
-    return (await Native.match()) as CodelloyLink | null;
+    // iOS resolves no link as undefined.
+    return ((await Native.match()) ?? null) as CodelloyLink | null;
   } finally {
     if (initialized) readInitialUrl();
   }
@@ -97,7 +113,9 @@ export async function match(): Promise<CodelloyLink | null> {
 
 /**
  * Adds a listener that gets each link one time: the deferred link of the first launch and each direct open.
- * A link that arrived before the first listener goes to that listener. Returns a function that removes the listener.
+ * A link that arrived before the first listener goes to that listener, also before `onLink` returns. Returns a
+ * function that removes the listener. Keep one listener for the life of the app: a link that arrives while the last
+ * listener is being removed can be lost.
  */
 export function onLink(listener: (link: CodelloyLink) => void): () => void {
   listeners.add(listener);

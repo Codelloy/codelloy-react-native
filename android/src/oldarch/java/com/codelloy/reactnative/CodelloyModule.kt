@@ -14,7 +14,8 @@ class CodelloyModule(
 
     override fun getName() = CodelloyImpl.NAME
 
-    @ReactMethod
+    // Sync, so a sync call right after init sees the configured SDK.
+    @ReactMethod(isBlockingSynchronousMethod = true)
     fun configure(
         key: String,
         clipboard: Boolean,
@@ -24,7 +25,10 @@ class CodelloyModule(
         debug: Boolean,
         baseUrl: String?,
         wrapper: String,
-    ) = impl.configure(key, clipboard, signalMatching, autoMatch, minConfidence, debug, baseUrl, wrapper)
+    ): Boolean {
+        impl.configure(key, clipboard, signalMatching, autoMatch, minConfidence, debug, baseUrl, wrapper)
+        return true
+    }
 
     @ReactMethod
     fun match(promise: Promise) = impl.match(promise)
