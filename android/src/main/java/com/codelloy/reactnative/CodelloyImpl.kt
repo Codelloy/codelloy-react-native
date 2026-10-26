@@ -57,9 +57,11 @@ internal class CodelloyImpl(
 
     /**
      * The initial URL of React Native `Linking`. The SDK gets the intent of the activity, so it does not resolve a
-     * handled intent or an intent from Recents again.
+     * handled intent again after a reload of the JavaScript bundle, or the intent of a task that Recents starts again.
      */
     fun handleInitialLink(url: String): Boolean {
+        // shortcut: after a process death, Android can make the activity again with its old intent and no mark, and
+        // the SDK resolves that link again. Upgrade when the SDK can read the saved state of the activity.
         val intent = context.currentActivity?.intent
         return if (intent?.action == Intent.ACTION_VIEW && intent.data?.toString() == url) {
             Codelloy.handleLink(intent)

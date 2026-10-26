@@ -1,4 +1,4 @@
-import { AppState, Linking, NativeEventEmitter, Platform } from 'react-native';
+import { AppState, Linking, NativeEventEmitter } from 'react-native';
 import Native, { type NativeLink } from './NativeCodelloy';
 import { version } from './version';
 
@@ -68,11 +68,11 @@ function readInitialUrl() {
   for (const url of waitingUrls.splice(0)) handleUrl(url);
   Linking.getInitialURL()
     .then((url) => {
-      if (!url) return;
-      // Android: the core checks the intent of the activity, so it does not resolve a handled intent or an intent
-      // from Recents again.
-      if (Platform.OS === 'android') Native.handleInitialLink(url);
-      else if (!handledUrls.has(url)) handleUrl(url);
+      if (!url || handledUrls.has(url)) return;
+      handledUrls.add(url);
+      // The record dies with the JavaScript runtime. The native side stops a second resolve after a reload: Android
+      // gives the core the intent of the activity, and iOS records the launch URL of the process.
+      Native.handleInitialLink(url);
     })
     // The app did not ask for this read, so a failed read is not its error.
     .catch(() => undefined);

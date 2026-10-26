@@ -11,7 +11,7 @@ const link: NativeLink = {
 };
 
 // Each test loads a fresh copy of the module, because the module keeps its listeners and delivered ids.
-async function load(os: 'ios' | 'android' = 'ios') {
+async function load() {
   jest.resetModules();
   const native = {
     configure: jest.fn<boolean, Parameters<Spec['configure']>>(() => true),
@@ -29,9 +29,8 @@ async function load(os: 'ios' | 'android' = 'ios') {
     __esModule: true,
     default: native,
   }));
-  const { AppState, DeviceEventEmitter, Linking, Platform } =
+  const { AppState, DeviceEventEmitter, Linking } =
     await import('react-native');
-  jest.replaceProperty(Platform, 'OS', os);
   const api = await import('../index');
   const emit = (value: NativeLink) => {
     DeviceEventEmitter.emit('CodelloyLink', value);
@@ -105,7 +104,7 @@ describe('init', () => {
 });
 
 describe('Linking', () => {
-  it('gives the initial URL to handleLink', async () => {
+  it('gives the initial URL to handleInitialLink', async () => {
     const { api, native, Linking } = await load();
     jest
       .mocked(Linking.getInitialURL)
@@ -114,19 +113,19 @@ describe('Linking', () => {
     api.init({ key: 'pk_test_x' });
     await flush();
 
-    expect(native.handleLink).toHaveBeenCalledWith(
+    expect(native.handleInitialLink).toHaveBeenCalledWith(
       'https://links.example.com/abc'
     );
   });
 
-  it('does not call handleLink when the app did not open from a link', async () => {
+  it('does not call handleInitialLink when the app did not open from a link', async () => {
     const { api, native, Linking } = await load();
     jest.mocked(Linking.getInitialURL).mockResolvedValue(null);
 
     api.init({ key: 'pk_test_x' });
     await flush();
 
-    expect(native.handleLink).not.toHaveBeenCalled();
+    expect(native.handleInitialLink).not.toHaveBeenCalled();
   });
 
   it('gives each url event to handleLink', async () => {
@@ -153,7 +152,7 @@ describe('Linking', () => {
 
     await api.match();
     await flush();
-    expect(native.handleLink).toHaveBeenCalledWith(
+    expect(native.handleInitialLink).toHaveBeenCalledWith(
       'https://links.example.com/abc'
     );
   });
@@ -169,10 +168,10 @@ describe('Linking', () => {
     await expect(api.match()).rejects.toThrow('network');
     await flush();
 
-    expect(native.handleLink).toHaveBeenCalledTimes(1);
+    expect(native.handleInitialLink).toHaveBeenCalledTimes(1);
   });
 
-  it('gives the initial URL to handleLink one time', async () => {
+  it('gives the initial URL to handleInitialLink one time', async () => {
     const { api, native, Linking } = await load();
     jest
       .mocked(Linking.getInitialURL)
@@ -183,7 +182,7 @@ describe('Linking', () => {
     await api.match();
     await flush();
 
-    expect(native.handleLink).toHaveBeenCalledTimes(1);
+    expect(native.handleInitialLink).toHaveBeenCalledTimes(1);
   });
 
   it('subscribes one time when the app calls init again', async () => {
@@ -198,7 +197,7 @@ describe('Linking', () => {
 
   // Android 11 and lower: Back ends the activity but not the JavaScript runtime. A new link starts a new activity,
   // and React Native sends no url event for it.
-  it('gives a new initial URL to handleLink when the app becomes active', async () => {
+  it('gives a new initial URL to handleInitialLink when the app becomes active', async () => {
     const { api, native, Linking, becomeActive } = await load();
     jest
       .mocked(Linking.getInitialURL)
@@ -210,12 +209,13 @@ describe('Linking', () => {
     becomeActive();
     await flush();
 
-    expect(native.handleLink.mock.calls).toEqual([
+    expect(native.handleInitialLink.mock.calls).toEqual([
       ['https://links.example.com/abc'],
       ['https://links.example.com/def'],
     ]);
   });
 
+  // Android: the core marks an intent only when it takes the link, so a refused intent would be resolved later.
   it('does not give the same initial URL again when the app becomes active', async () => {
     const { api, native, Linking, becomeActive } = await load();
     jest
@@ -227,9 +227,10 @@ describe('Linking', () => {
     becomeActive();
     await flush();
 
-    expect(native.handleLink).toHaveBeenCalledTimes(1);
+    expect(native.handleInitialLink).toHaveBeenCalledTimes(1);
   });
 
+  // Android: an app can call setIntent in onNewIntent, so getInitialURL gives the URL of the last url event.
   it('does not give the URL of a url event again as an initial URL', async () => {
     const { api, native, Linking, urlListener, becomeActive } = await load();
     jest.mocked(Linking.getInitialURL).mockResolvedValueOnce(null);
@@ -244,6 +245,7 @@ describe('Linking', () => {
     await flush();
 
     expect(native.handleLink).toHaveBeenCalledTimes(1);
+    expect(native.handleInitialLink).not.toHaveBeenCalled();
   });
 
   // The core refuses each link until the first match. A link that the user opened before consent must not be lost.
@@ -259,26 +261,6 @@ describe('Linking', () => {
     expect(native.handleLink).toHaveBeenCalledWith(
       'https://links.example.com/def'
     );
-  });
-
-  // Android: after a process death, Recents starts the activity again with the old intent. The core checks the
-  // intent, not the URL, so it does not resolve that link or a handled intent again.
-  it('gives the initial URL on Android to the core with the intent of the activity', async () => {
-    const { api, native, Linking, becomeActive } = await load('android');
-    jest
-      .mocked(Linking.getInitialURL)
-      .mockResolvedValue('https://links.example.com/abc');
-
-    api.init({ key: 'pk_test_x' });
-    await flush();
-    becomeActive();
-    await flush();
-
-    expect(native.handleInitialLink.mock.calls).toEqual([
-      ['https://links.example.com/abc'],
-      ['https://links.example.com/abc'],
-    ]);
-    expect(native.handleLink).not.toHaveBeenCalled();
   });
 
   // Jest fails a test that leaves a rejection unhandled.

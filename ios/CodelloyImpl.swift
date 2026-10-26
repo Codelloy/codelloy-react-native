@@ -59,6 +59,16 @@ public final class CodelloyImpl: NSObject {
         return Codelloy.handleLink(url)
     }
 
+    // React Native gives the same launch URL for the life of the process, also after a reload of the JavaScript bundle.
+    private static var initialUrl: String?
+
+    /// The initial URL of React Native `Linking`. The SDK gets the launch URL one time per process.
+    @objc public func handleInitialLink(_ url: String) -> Bool {
+        guard url != Self.initialUrl else { return false }
+        Self.initialUrl = url
+        return handleLink(url)
+    }
+
     @objc public var installId: String { Codelloy.installId }
 
     @objc public func resetForTesting() -> Bool {
