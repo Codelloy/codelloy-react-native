@@ -42,7 +42,7 @@ lib/
 ios/generated
 android/generated
 
-# The native SDK binary. scripts/native-dev.sh puts it here.
+# The native SDK binary. scripts/fetch-native.sh or scripts/native-dev.sh puts it here.
 ios/Frameworks/
 
 # The pinned tools of the scripts

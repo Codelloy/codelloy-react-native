@@ -38,9 +38,12 @@ android {
   }
 }
 
+// The native SDK version comes only from codelloyNative in package.json.
+def codelloyNative = new groovy.json.JsonSlurper().parse(file("../package.json")).codelloyNative
+
 dependencies {
   implementation "com.facebook.react:react-android"
-  // The app resolves it from its repositories. Until the release, a development build adds Maven Local for the group
-  // com.codelloy (scripts/native-dev.sh).
-  implementation "com.codelloy:codelloy-android:0.1.0"
+  // The app resolves it from its repositories: Maven Central, or Maven Local for the group com.codelloy in a
+  // development build (scripts/native-dev.sh).
+  implementation "com.codelloy:codelloy-android:${codelloyNative.version}"
 }

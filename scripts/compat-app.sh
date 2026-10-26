@@ -2,8 +2,8 @@
 # Makes a temporary React Native app, installs the packed wrapper, type-checks a file that calls each function and
 # builds the app.
 # Usage: scripts/compat-app.sh <react-native version|latest> <old|new> <ios|android> [folder]
-# Run scripts/native-dev.sh for the platform first (CI uses the release). iOS needs Ruby with Bundler. Android needs
-# JDK 17.
+# Run scripts/native-dev.sh for the platform first. CI uses the pinned release (scripts/fetch-native.sh and Maven
+# Central). iOS needs Ruby with Bundler. Android needs JDK 17.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -26,8 +26,9 @@ case $version in
 esac
 
 mkdir -p "$dir"
-# The package as npm publishes it, with ios/Frameworks when it is there.
-npm pack --pack-destination "$dir" >/dev/null
+# The files that npm publishes. --ignore-scripts skips prepack, so ios/Frameworks keeps its XCFramework. npm still runs
+# prepare (the bob build of lib/) when it packs a folder.
+npm pack --ignore-scripts --pack-destination "$dir" >/dev/null
 tarball=$(ls "$dir"/codelloy-react-native-*.tgz)
 cd "$dir"
 rm -rf CompatApp

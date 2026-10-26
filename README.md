@@ -86,7 +86,12 @@ Add the bundle ID with the Team ID, and the package name with the SHA-256 finger
 
 ## Development
 
-The native SDK binaries are not in git. Until the first release, `scripts/native-dev.sh` makes them from a local checkout of the native SDK source:
+The native SDK binaries are not in git. The field `codelloyNative` in `package.json` pins the native SDK release: its `version`, and `sha256`, the SHA-256 of its iOS zip. The podspec, `android/build.gradle` and `scripts/fetch-native.sh` read the version only from this field. Until the first release, `sha256` is the placeholder (64 zeros), and CI skips the native builds.
+
+- iOS: `scripts/fetch-native.sh` downloads `CodelloySDK-<version>.xcframework.zip` from the GitHub release `<version>` of `Codelloy/codelloy-ios`, checks its SHA-256 and unzips it into `ios/Frameworks/`. It stops on each error: the placeholder, a missing release, a network error or a wrong SHA-256. `npm pack` and `npm publish` run it first (`prepack`), so the npm package holds the XCFramework. `pod install` stops when `ios/Frameworks/` does not hold the pinned version.
+- Android: Gradle gets `com.codelloy:codelloy-android:<version>` from Maven Central.
+
+Before the first release, or for a native SDK change that is not released, `scripts/native-dev.sh` makes the binaries from a local checkout of the native SDK source. The checkout must have the pinned version:
 
 ```sh
 CODELLOY_NATIVE_DIR=/path/to/native-sdk-source scripts/native-dev.sh        # ios and android
@@ -102,13 +107,14 @@ npm install
 npm run lint && npm run typecheck && npm test
 scripts/lint-native.sh           # SwiftLint, clang-format and ktlint (macOS, Java on the PATH)
 scripts/secret-scan.sh           # gitleaks
+scripts/test-fetch-native.sh     # scripts/fetch-native.sh against fixture zips
 scripts/compat-app.sh 0.74.7 old ios    # a temporary app on React Native 0.74, old architecture
 scripts/compat-app.sh latest new android
 ```
 
 ### Example app
 
-`example/` is an app on React Native 0.83 with the new architecture and static frameworks. It uses the binaries of `scripts/native-dev.sh`.
+`example/` is an app on React Native 0.83 with the new architecture and static frameworks. It uses the binaries of `scripts/native-dev.sh`, or of `scripts/fetch-native.sh` and Maven Central after a release.
 
 1. `npm install` in the root and in `example/`. The install in `example/` makes `example/codelloy.local.json`, which git ignores.
 2. Put your test key in `example/codelloy.local.json`. For a local backend, also set `baseUrl`, for example `http://localhost:8080/link` on the iOS simulator or `http://10.0.2.2:8080/link` on the Android emulator.
@@ -116,6 +122,23 @@ scripts/compat-app.sh latest new android
 4. Android: `npm run android` in `example/`. A local build has no Play referrer. With a `pk_test_` key, the SDK reads a fake referrer: add `-Pcodelloy.testReferrer=cdl=<click token>` to the Gradle command, or put `codelloy.testReferrer` in `~/.gradle/gradle.properties`.
 
 The app shows the install id and each link that `onLink` delivers.
+
+## Release
+
+The operator makes each release after approval, in this order:
+
+1. **Native SDK.** Release the native SDK version first: the GitHub release `<version>` of `Codelloy/codelloy-ios` with `CodelloySDK-<version>.xcframework.zip`, and `com.codelloy:codelloy-android:<version>` on Maven Central.
+2. **Pin.** Set `codelloyNative.version` in `package.json` to that version, and `codelloyNative.sha256` to the SHA-256 of the zip. It is the `checksum` in `Package.swift` of `codelloy-ios`, and `shasum -a 256` of the zip gives the same value. Set the package version in `package.json` and in `src/version.ts` (a test compares them). With the pin, CI builds the example and the compatibility apps on the released binaries. Merge the change into `master`.
+3. **Dry run.** In GitHub Actions, run the workflow "Release" on `master` with `publish` off. It runs each check, the example builds and the compatibility apps, packs the package and keeps the tarball as the artifact `npm-package`. It publishes nothing.
+4. **Publish, after approval.** Run "Release" on `master` with `publish` on. The publish job waits for the approval of the environment `npm`. Then it publishes the tarball of its run to npm with provenance. With `publish` on, a run on another branch fails.
+5. Optional: tag the release commit `v<version>`.
+
+The workflows read secrets only from GitHub secrets:
+
+| Secret                                                   | Use                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NPM_TOKEN`                                              | An npm access token that can publish to the scope `@codelloy`. The npm organisation `codelloy` must exist. Put the secret in the environment `npm` (Settings, Environments), not in the repository secrets. Add the operator as the required reviewer of that environment, and set its "Deployment branches and tags" to `master` only. Then only a run on `master` gets the token. |
+| `SCAN_TEAM_ID` and the other `SCAN_` secrets of `ci.yml` | The real identifying values. The secret scan fails when the git history holds one of them, and names only the secret. It skips a secret that is not set.                                                                                                                                                                                                                            |
 
 ## License
 
