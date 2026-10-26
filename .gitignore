@@ -29,9 +29,11 @@ local.properties
 example/ios/Pods
 example/vendor/
 
-# Node
+# Node and Metro
 node_modules/
 npm-debug.log
+*.jsbundle
+.metro-health-check*
 
 # The output of react-native-builder-bob
 lib/

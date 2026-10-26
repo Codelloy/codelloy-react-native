@@ -1,0 +1,31 @@
+{
+  "name": "codelloy-react-native-example",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "postinstall": "node -e \"const fs = require('fs'); fs.existsSync('codelloy.local.json') || fs.copyFileSync('codelloy.local.example.json', 'codelloy.local.json')\""
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-native": "0.83.10"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.0.0",
+    "@react-native-community/cli-platform-android": "20.0.0",
+    "@react-native-community/cli-platform-ios": "20.0.0",
+    "@react-native/babel-preset": "0.83.10",
+    "@react-native/metro-config": "0.83.10",
+    "@types/react": "^19.2.0",
+    "react-native-builder-bob": "^0.44.1",
+    "react-native-monorepo-config": "^0.4.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

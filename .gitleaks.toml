@@ -1,0 +1,9 @@
+# The gitleaks config of scripts/secret-scan.sh: the default rules and the form of a real Codelloy SDK key.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "codelloy-sdk-key"
+description = "A Codelloy SDK key: pk_live_ or pk_test_ and 32 lower-case hex characters"
+regex = '''pk_(?:live|test)_[0-9a-f]{32}'''
+keywords = ["pk_live_", "pk_test_"]

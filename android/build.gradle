@@ -1,0 +1,46 @@
+ext.Codelloy = [
+  minSdkVersion: 24,
+  compileSdkVersion: 36
+]
+
+ext.getExtOrDefault = { prop ->
+  return rootProject.ext.has(prop) ? rootProject.ext.get(prop) : Codelloy[prop]
+}
+
+def isNewArchitectureEnabled() {
+  return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
+}
+
+apply plugin: "com.android.library"
+
+if (project.extensions.findByName("kotlin") == null) {
+  apply plugin: "kotlin-android"
+}
+
+// Codegen of the spec in src/NativeCodelloy.ts. The old architecture needs no codegen.
+if (isNewArchitectureEnabled()) {
+  apply plugin: "com.facebook.react"
+}
+
+android {
+  namespace "com.codelloy.reactnative"
+
+  compileSdkVersion getExtOrDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getExtOrDefault("minSdkVersion")
+  }
+
+  sourceSets {
+    main {
+      java.srcDirs += isNewArchitectureEnabled() ? ["src/newarch/java"] : ["src/oldarch/java"]
+    }
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  // The app resolves it from its repositories. Until the release, a development build adds Maven Local for the group
+  // com.codelloy (scripts/native-dev.sh).
+  implementation "com.codelloy:codelloy-android:0.1.0"
+}
