@@ -1,0 +1,4 @@
+*.pbxproj -text
+*.bat text eol=crlf
+# Lockfiles: a diff shows only that they changed.
+package-lock.json -diff

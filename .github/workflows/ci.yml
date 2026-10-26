@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, 'feature/**']
+  push:
+    branches: [master, 'feature/**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  js:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      # npm ci runs prepare, the bob build of lib/.
+      - run: npm ci
+      # The example code is linted and type-checked too. Its install makes example/codelloy.local.json.
+      - run: npm ci --prefix example
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  native-lint:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: scripts/lint-native.sh
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks and the value search read each commit.
+          fetch-depth: 0
+      # The script skips a secret that is not set, and never prints a value.
+      - run: scripts/secret-scan.sh
+        env:
+          SCAN_TEAM_ID: ${{ secrets.SCAN_TEAM_ID }}
+          SCAN_BUNDLE_ID: ${{ secrets.SCAN_BUNDLE_ID }}
+          SCAN_APPLICATION_ID: ${{ secrets.SCAN_APPLICATION_ID }}
+          SCAN_LINK_DOMAIN: ${{ secrets.SCAN_LINK_DOMAIN }}
+          SCAN_STAGING_HOST: ${{ secrets.SCAN_STAGING_HOST }}
+          SCAN_CERT_SHA256: ${{ secrets.SCAN_CERT_SHA256 }}
+      - run: scripts/test-secret-scan.sh
