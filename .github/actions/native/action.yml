@@ -1,0 +1,30 @@
+name: Native SDK
+description: >-
+  Makes the native SDK artifacts of a development build from the native SDK source repo with scripts/native-dev.sh.
+  shortcut: needs a read token for the source repo, remove when the build downloads the released artifacts.
+inputs:
+  platform:
+    description: ios or android
+    required: true
+  repository:
+    description: The native SDK source repo (owner/name), from a repository variable
+    required: true
+  ref:
+    description: The branch of the native SDK source repo
+    required: true
+  token:
+    description: A token with read access to the native SDK source repo, from a secret
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        token: ${{ inputs.token }}
+        path: .native
+    - shell: bash
+      run: scripts/native-dev.sh "${{ inputs.platform }}"
+      env:
+        CODELLOY_NATIVE_DIR: ${{ github.workspace }}/.native

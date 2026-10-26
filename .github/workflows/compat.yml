@@ -1,0 +1,60 @@
+name: Compat
+
+# Temporary apps on the oldest supported React Native (old architecture) and on the latest React Native.
+on:
+  pull_request:
+    branches: [master, 'feature/**']
+  push:
+    branches: [master, 'feature/**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: ${{ matrix.react-native }} ${{ matrix.arch }} ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - react-native: 0.74.7
+            arch: old
+            platform: ios
+            runner: macos-26
+          - react-native: 0.74.7
+            arch: old
+            platform: android
+            runner: ubuntu-24.04
+          - react-native: latest
+            arch: new
+            platform: ios
+            runner: macos-26
+          - react-native: latest
+            arch: new
+            platform: android
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: matrix.platform == 'android'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: ./.github/actions/native
+        with:
+          platform: ${{ matrix.platform }}
+          repository: ${{ vars.CODELLOY_NATIVE_REPOSITORY }}
+          ref: ${{ vars.CODELLOY_NATIVE_REF || 'feature/deferred-deep-linking' }}
+          token: ${{ secrets.CODELLOY_NATIVE_TOKEN }}
+      - run: npm ci
+      - run: scripts/compat-app.sh "${{ matrix.react-native }}" "${{ matrix.arch }}" "${{ matrix.platform }}" "$RUNNER_TEMP/compat"
