@@ -6,7 +6,9 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # fails only later, in the app build.
 native = package["codelloyNative"]["version"]
 plist = File.join(__dir__, "ios/Frameworks/CodelloySDK.xcframework/ios-arm64/CodelloySDK.framework/Info.plist")
-found = File.exist?(plist) ? `plutil -extract CFBundleShortVersionString raw -o - "#{plist}"`.strip : "missing"
+# No shell: the path of the app can hold $, ` or ".
+plutil = ["plutil", "-extract", "CFBundleShortVersionString", "raw", "-o", "-", plist]
+found = File.exist?(plist) ? IO.popen(plutil, &:read).strip : "missing"
 if found != native
   raise "ios/Frameworks/CodelloySDK.xcframework is #{found}, but codelloyNative in package.json pins #{native}. " \
         "Run scripts/fetch-native.sh, or scripts/native-dev.sh for a development build"
