@@ -5,9 +5,12 @@ on:
     branches: [master, 'feature/**']
   push:
     branches: [master, 'feature/**']
+  # The release workflow runs each check.
+  workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # In a run of the release workflow, github.workflow is Release. The prefix keeps the called workflows apart.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -33,6 +36,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: scripts/test-fetch-native.sh
 
   native-lint:
     runs-on: macos-26

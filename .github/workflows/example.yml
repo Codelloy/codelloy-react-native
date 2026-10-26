@@ -5,9 +5,12 @@ on:
     branches: [master, 'feature/**']
   push:
     branches: [master, 'feature/**']
+  # The release workflow runs each check.
+  workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # In a run of the release workflow, github.workflow is Release. The prefix keeps the called workflows apart.
+  group: example-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,20 +22,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      version: ${{ steps.pin.outputs.version }}
+      released: ${{ steps.pin.outputs.released }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The pin is a placeholder while its sha256 is 64 zeros.
       - id: pin
         run: |
-          version=$(jq -r '.codelloyNative.version // empty' package.json)
-          echo "version=$version" >>"$GITHUB_OUTPUT"
-          if [ -z "$version" ]; then
-            echo "No native SDK release is pinned in package.json (codelloyNative) yet. The native build jobs are skipped. They start after the first release." >>"$GITHUB_STEP_SUMMARY"
+          released=$(jq -r '.codelloyNative.sha256 | test("^0+$") | not' package.json)
+          echo "released=$released" >>"$GITHUB_OUTPUT"
+          if [ "$released" = false ]; then
+            echo "codelloyNative in package.json is the placeholder: no native SDK release is pinned. The native build jobs are skipped. They start when codelloyNative pins a release." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
   ios:
     needs: release
-    if: needs.release.outputs.version != ''
+    if: needs.release.outputs.released == 'true'
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -44,7 +48,7 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             example/package-lock.json
-      - uses: ./.github/actions/native
+      - run: scripts/fetch-native.sh
       - run: npm ci && npm ci --prefix example
       - working-directory: example
         run: bundle install && cd ios && bundle exec pod install
@@ -55,7 +59,7 @@ jobs:
 
   android:
     needs: release
-    if: needs.release.outputs.version != ''
+    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
