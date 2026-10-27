@@ -33,15 +33,15 @@ const remove = Codelloy.onLink((link) => {
 
 The SDK reads each URL of React Native `Linking` by itself. `handleLink(url)` returns `true` for a URL on a link domain of your organisation. For each other URL it returns `false`, and the app handles the URL itself. Do not give `handleLink` a URL of React Native `Linking`: the SDK already has it, and each call resolves the link again.
 
-| `init` option    | Default         | Effect                                                                                                  |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `key`            |                 | Your SDK key.                                                                                           |
-| `clipboard`      | `true`          | iOS: reads the click token from the clipboard at the first launch. iOS can show a paste alert.          |
-| `signalMatching` | `true`          | Sends the screen size for a signal match. With `false`, only exact matches.                             |
-| `autoMatch`      | `true`          | With `false`, the SDK reads and sends nothing until the app calls `match()`, for example after consent. |
-| `minConfidence`  | `'high'`        | `'medium'` also delivers medium signal matches.                                                         |
-| `debug`          | `false`         | Writes SDK lines to the Xcode console and to Logcat.                                                    |
-| `baseUrl`        | Codelloy server | Set it only for a local backend.                                                                        |
+| `init` option    | Default         | Effect                                                                                                      |
+| ---------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `key`            |                 | Your SDK key.                                                                                               |
+| `clipboard`      | `true`          | iOS: reads the click token from the clipboard at the first launch. iOS can show a paste alert.              |
+| `signalMatching` | `true`          | iOS only: sends the screen size for a signal match. With `false`, only exact matches. No effect on Android. |
+| `autoMatch`      | `true`          | With `false`, the SDK reads and sends nothing until the app calls `match()`, for example after consent.     |
+| `minConfidence`  | `'high'`        | `'medium'` also delivers medium signal matches.                                                             |
+| `debug`          | `false`         | Writes SDK lines to the Xcode console and to Logcat.                                                        |
+| `baseUrl`        | Codelloy server | Set it only for a local backend.                                                                            |
 
 `installId()` gives the id of this install, or `null` on Android before `init`. `resetForTesting()` deletes the install state, so the next `match()` runs as on a fresh install. It works only with a `pk_test_` key.
 
