@@ -26,7 +26,10 @@ export interface CodelloyOptions {
   key: string;
   /** iOS: read the click token from the clipboard at the first launch. Default `true`. */
   clipboard?: boolean;
-  /** Send the screen size for a signal match. With `false`, only exact matches. Default `true`. */
+  /**
+   * Send the screen size for a signal match, on iOS only. It has no effect on Android.
+   * With `false`, iOS delivers only exact matches. Default `true`.
+   */
   signalMatching?: boolean;
   /** Run the first-launch match at `init`. With `false`, the SDK reads and sends nothing until `match`. Default `true`. */
   autoMatch?: boolean;
