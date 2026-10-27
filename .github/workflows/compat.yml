@@ -1,0 +1,78 @@
+name: Compat
+
+# Temporary apps on the oldest supported React Native (old architecture) and on the latest React Native.
+on:
+  pull_request:
+    branches: [master, 'feature/**']
+  push:
+    branches: [master, 'feature/**']
+  # The release workflow runs each check.
+  workflow_call:
+
+concurrency:
+  # In a run of the release workflow, github.workflow is Release. The prefix keeps the called workflows apart.
+  group: compat-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The native jobs use only released native SDK artifacts, at the version that package.json pins.
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      released: ${{ steps.pin.outputs.released }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The pin is a placeholder while its sha256 is 64 zeros.
+      - id: pin
+        run: |
+          released=$(jq -r '.codelloyNative.sha256 | test("^0+$") | not' package.json)
+          echo "released=$released" >>"$GITHUB_OUTPUT"
+          if [ "$released" = false ]; then
+            echo "codelloyNative in package.json is the placeholder: no native SDK release is pinned. The compat jobs are skipped. They start when codelloyNative pins a release." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  app:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    name: ${{ matrix.react-native }} ${{ matrix.arch }} ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - react-native: 0.74.7
+            arch: old
+            platform: ios
+            runner: macos-26
+          - react-native: 0.74.7
+            arch: old
+            platform: android
+            runner: ubuntu-24.04
+          - react-native: latest
+            arch: new
+            platform: ios
+            runner: macos-26
+          - react-native: latest
+            arch: new
+            platform: android
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: matrix.platform == 'android'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: matrix.platform == 'ios'
+        run: scripts/fetch-native.sh
+      - run: npm ci
+      - run: scripts/compat-app.sh "${{ matrix.react-native }}" "${{ matrix.arch }}" "${{ matrix.platform }}" "$RUNNER_TEMP/compat"

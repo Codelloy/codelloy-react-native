@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+xcuserdata
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+**/.xcode.env.local
+
+# Android and IntelliJ
+.cxx
+.gradle
+.idea
+.kotlin
+local.properties
+*.iml
+
+# Signing files never go in git.
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# CocoaPods and Ruby
+example/ios/Pods
+example/vendor/
+
+# Node and Metro
+node_modules/
+npm-debug.log
+*.jsbundle
+.metro-health-check*
+
+# The output of react-native-builder-bob
+lib/
+
+# React Native codegen
+ios/generated
+android/generated
+
+# The native SDK binary. scripts/fetch-native.sh or scripts/native-dev.sh puts it here.
+ios/Frameworks/
+
+# The pinned tools of the scripts
+.build/
+
+# Local values of the example app
+example/codelloy.local.json

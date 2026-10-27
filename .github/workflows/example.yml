@@ -1,0 +1,85 @@
+name: Example
+
+on:
+  pull_request:
+    branches: [master, 'feature/**']
+  push:
+    branches: [master, 'feature/**']
+  # The release workflow runs each check.
+  workflow_call:
+
+concurrency:
+  # In a run of the release workflow, github.workflow is Release. The prefix keeps the called workflows apart.
+  group: example-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The native jobs use only released native SDK artifacts, at the version that package.json pins.
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      released: ${{ steps.pin.outputs.released }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The pin is a placeholder while its sha256 is 64 zeros.
+      - id: pin
+        run: |
+          released=$(jq -r '.codelloyNative.sha256 | test("^0+$") | not' package.json)
+          echo "released=$released" >>"$GITHUB_OUTPUT"
+          if [ "$released" = false ]; then
+            echo "codelloyNative in package.json is the placeholder: no native SDK release is pinned. The native build jobs are skipped. They start when codelloyNative pins a release." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  ios:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      - run: scripts/fetch-native.sh
+      - run: npm ci && npm ci --prefix example
+      - working-directory: example
+        run: bundle install && cd ios && bundle exec pod install
+      - working-directory: example/ios
+        run: >-
+          xcodebuild -quiet -workspace CodelloyExample.xcworkspace -scheme CodelloyExample -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+
+  android:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          # The default provider is a commercial service. basic uses the GitHub Actions cache.
+          cache-provider: basic
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - run: npm ci && npm ci --prefix example
+      - working-directory: example/android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain
